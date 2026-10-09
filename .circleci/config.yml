@@ -903,7 +903,7 @@ jobs:
               echo "Linux build did not produce all required installers and updater signatures." >&2
               exit 1
             fi
-            node scripts/appimage-launcher-tools.mjs validate-appimages "${appimages[@]}"
+            node scripts/appimage-launcher-tools.mjs validate-appimage-libraries "${appimages[@]}"
             validate_desktop_categories() {
               local package_path="$1"
               local extract_dir="$2"

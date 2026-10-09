@@ -24,6 +24,7 @@ import {
   findBundledHostLibraries,
   patchAppRunText,
   preparePluginWrapper,
+  validateAppImageLibraries,
   validateAppImages,
 } from './appimage-launcher-tools.mjs'
 
@@ -73,11 +74,14 @@ test('rejects AppImages that carry host-owned system library families', () => {
   )
 })
 
-async function writeFakeAppImage(root, { includeSystemd = false } = {}) {
-  const fakeAppImage = join(root, includeSystemd ? 'unsafe.AppImage' : 'safe.AppImage')
-  const systemdFixture = includeSystemd
-    ? 'touch squashfs-root/usr/lib/libsystemd.so.0'
-    : ''
+async function writeFakeAppImage(root, { includeSystemd = false, stock = false } = {}) {
+  const name = `${stock ? 'stock' : 'shim'}-${includeSystemd ? 'unsafe' : 'safe'}.AppImage`
+  const fakeAppImage = join(root, name)
+  const appRunLine = stock ? BROKEN_LINUXDEPLOY_APPRUN_DIR_LINE : FIXED_LINUXDEPLOY_APPRUN_DIR_LINE
+  const systemdFixture = includeSystemd ? 'touch squashfs-root/usr/lib/libsystemd.so.0' : ''
+  const otherPayload = stock
+    ? 'exit 1'
+    : 'mkdir -p "squashfs-root/$(dirname "$requested")" && touch "squashfs-root/$requested"'
 
   await writeFile(
     fakeAppImage,
@@ -87,7 +91,7 @@ requested="$2"
 case "$requested" in
   AppRun)
     mkdir -p squashfs-root
-    printf '%s\\n' '#!/usr/bin/env bash' '${FIXED_LINUXDEPLOY_APPRUN_DIR_LINE}' > squashfs-root/AppRun
+    printf '%s\\n' '#!/usr/bin/env bash' '${appRunLine}' > squashfs-root/AppRun
     ;;
   usr/lib)
     mkdir -p squashfs-root/usr/lib
@@ -95,8 +99,7 @@ case "$requested" in
     ${systemdFixture}
     ;;
   *)
-    mkdir -p "squashfs-root/$(dirname "$requested")"
-    touch "squashfs-root/$requested"
+    ${otherPayload}
     ;;
 esac
 `,
@@ -114,7 +117,27 @@ test('sealed AppImage validation enforces the host-library boundary', async () =
   await validateAppImages([safeAppImage])
   await assert.rejects(
     validateAppImages([unsafeAppImage]),
-    /unsafe\.AppImage bundles host system libraries: libsystemd\.so\.0/,
+    /shim-unsafe\.AppImage bundles host system libraries: libsystemd\.so\.0/,
+  )
+})
+
+test('library-only validation accepts stock AppImages and still enforces the host-library boundary', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'tolaria-appimage-stock-'))
+  const stockAppImage = await writeFakeAppImage(root, { stock: true })
+  const unsafeStockAppImage = await writeFakeAppImage(root, { stock: true, includeSystemd: true })
+
+  await validateAppImageLibraries([stockAppImage])
+  await assert.rejects(
+    validateAppImages([stockAppImage]),
+    /Failed to extract .*im-fcitx5\.so from .*stock-safe\.AppImage/,
+  )
+  await assert.rejects(
+    validateAppImageLibraries([unsafeStockAppImage]),
+    /stock-unsafe\.AppImage bundles host system libraries: libsystemd\.so\.0/,
+  )
+  await assert.rejects(
+    validateAppImageLibraries([]),
+    /At least one AppImage path is required/,
   )
 })
 

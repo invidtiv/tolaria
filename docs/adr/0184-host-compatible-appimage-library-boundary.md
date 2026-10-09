@@ -17,7 +17,7 @@ Core GTK and GLib libraries remain a coherent private application stack because 
 
 **Build Linux AppImages with Tauri CLI 2.12.1 or newer, exclude host-owned system-library families through linuxdeploy, and reject sealed AppImages that contain any excluded family.**
 
-The exclusion boundary covers systemd/udev, D-Bus, Wayland, epoxy, and nghttp2. Release validation extracts each finished AppImage and checks the library inventory together with the existing AppRun, fcitx, updater-signature, and installer checks. Tauri's stock updated GTK plugin remains responsible for GTK modules; Tolaria does not replace the output plugin in Tauri's tools cache.
+The exclusion boundary covers systemd/udev, D-Bus, Wayland, epoxy, and nghttp2. Both release build paths (the CircleCI Linux job and the reusable GitHub Actions artifact workflow) export the exclusion list as `LINUXDEPLOY_EXCLUDED_LIBRARIES` and then run `validate-appimage-libraries`, which extracts each finished AppImage and checks the library inventory alongside the existing updater-signature and installer checks. The stricter `validate-appimages` command also requires the symlink-safe AppRun and fcitx payload produced only by the experimental output-plugin shim, so it is not a gate for stock packaging. Tauri's stock updated GTK plugin remains responsible for GTK modules; Tolaria does not replace the output plugin in Tauri's tools cache.
 
 ## Options considered
 
@@ -31,5 +31,6 @@ The exclusion boundary covers systemd/udev, D-Bus, Wayland, epoxy, and nghttp2. 
 - Current distributions use their own systemd, udev, D-Bus, Wayland, epoxy, and nghttp2 libraries instead of stale Ubuntu 22.04 copies.
 - Ubuntu 22.04 remains the oldest release-build and launch target, so every excluded family must be available through the supported desktop runtime.
 - A Tauri/linuxdeploy change that reintroduces an excluded library fails the Linux release before upload.
+- Upgrading Tauri alone is not sufficient: a Tauri CLI 2.12.1 build without the exclusion export still bundles libsystemd, libudev, libdbus-1, libepoxy, libnghttp2, and three libwayland libraries, and reproduces the `LIBSYSTEMD_254` and nghttp2 symbol failures on Ubuntu 26.04.
 - The Linux QA matrix must launch the sealed artifact on an older LTS and a current distribution, covering X11/Wayland where available plus MCP, system Git, updater metadata, and symlinked launch behavior.
 - Re-evaluate the explicit exclusion list when upstream Tauri exposes an AppImage library policy or its default list provably covers the same boundary.

@@ -305,7 +305,7 @@ async function validateExtractedAppImage(appImage, tempDir) {
   await validateBundledLibraries(appImage, tempDir)
 }
 
-export async function validateAppImages(paths) {
+async function validateEachAppImage(paths, validate) {
   if (paths.length === 0) {
     throw new Error('At least one AppImage path is required for launcher validation')
   }
@@ -313,11 +313,19 @@ export async function validateAppImages(paths) {
   for (const appImage of paths.map((path) => resolve(path))) {
     const tempDir = await mkdtemp(join(tmpdir(), 'tolaria-appimage-'))
     try {
-      await validateExtractedAppImage(appImage, tempDir)
+      await validate(appImage, tempDir)
     } finally {
       await rm(tempDir, { recursive: true, force: true })
     }
   }
+}
+
+export async function validateAppImages(paths) {
+  await validateEachAppImage(paths, validateExtractedAppImage)
+}
+
+export async function validateAppImageLibraries(paths) {
+  await validateEachAppImage(paths, validateBundledLibraries)
 }
 
 async function preparePluginCommand() {
@@ -340,6 +348,13 @@ async function validateAppImagesCommand(paths) {
   }
 }
 
+async function validateAppImageLibrariesCommand(paths) {
+  await validateAppImageLibraries(paths)
+  for (const path of paths) {
+    log(`Validated AppImage host-library boundary in ${path}`)
+  }
+}
+
 async function printLinuxdeployExclusionsCommand() {
   log(LINUXDEPLOY_EXCLUDED_LIBRARIES)
 }
@@ -349,10 +364,11 @@ const COMMANDS = new Map([
   ['print-linuxdeploy-exclusions', printLinuxdeployExclusionsCommand],
   ['validate-apprun-file', validateAppRunFilesCommand],
   ['validate-appimages', validateAppImagesCommand],
+  ['validate-appimage-libraries', validateAppImageLibrariesCommand],
 ])
 
 function usage() {
-  return 'Usage: node scripts/appimage-launcher-tools.mjs prepare-plugin | print-linuxdeploy-exclusions | validate-apprun-file <AppRun...> | validate-appimages <AppImage...>'
+  return 'Usage: node scripts/appimage-launcher-tools.mjs prepare-plugin | print-linuxdeploy-exclusions | validate-apprun-file <AppRun...> | validate-appimages <AppImage...> | validate-appimage-libraries <AppImage...>'
 }
 
 async function main() {

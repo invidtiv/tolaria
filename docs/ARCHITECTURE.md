@@ -1044,7 +1044,7 @@ push to main
       → pnpm install, stamp version
       → export the host-owned AppImage library exclusion policy
       → tauri build --target x86_64-unknown-linux-gnu --bundles deb,rpm,appimage
-      → inspect the sealed AppImage library/AppRun/fcitx payload and verify installer + updater-signature artifacts
+      → inspect the sealed AppImage library inventory and verify installer + updater-signature artifacts
       → upload .deb, .rpm, .AppImage, and signed Linux updater bundles
       → pnpm install, stamp version, optionally import the Windows code-signing certificate
       → tauri build --target x86_64-pc-windows-msvc --bundles nsis, with Authenticode signing config only when certificate secrets are present
@@ -1074,7 +1074,7 @@ push vYYYY-MM-DD or stable-vYYYY.M.D tag
       → pnpm install, stamp version
       → export the host-owned AppImage library exclusion policy
       → tauri build --target x86_64-unknown-linux-gnu --bundles deb,rpm,appimage
-      → inspect the sealed AppImage library/AppRun/fcitx payload and verify installer + updater-signature artifacts
+      → inspect the sealed AppImage library inventory and verify installer + updater-signature artifacts
       → upload .deb, .rpm, .AppImage, and signed Linux updater bundles
       → pnpm install, stamp version, optionally import the Windows code-signing certificate
       → tauri build --target x86_64-pc-windows-msvc --bundles nsis, with Authenticode signing config only when certificate secrets are present
@@ -1092,7 +1092,7 @@ push vYYYY-MM-DD or stable-vYYYY.M.D tag
       → commit the generated site to `gh-pages` for GitHub's managed Pages deployment
 ```
 
-Linux AppImage release jobs pin Tauri CLI 2.12.1 or newer so packaging uses the updated stock linuxdeploy and GTK plugins. `scripts/appimage-launcher-tools.mjs` owns the explicit host-library boundary: CircleCI exports its linuxdeploy exclusion list for systemd/udev, D-Bus, Wayland, epoxy, and nghttp2, then the same script extracts every sealed AppImage and fails if any excluded family is present or if the existing symlink-safe AppRun/fcitx payload checks fail. GTK and GLib remain bundled as one coherent application stack for older distributions. The experimental output-plugin shim remains available for local investigation, but release packaging does not pre-seed it because that path previously exited before sealing the AppImage. See [ADR-0184](./adr/0184-host-compatible-appimage-library-boundary.md).
+Linux AppImage release jobs pin Tauri CLI 2.12.1 or newer so packaging uses the updated stock linuxdeploy and GTK plugins. `scripts/appimage-launcher-tools.mjs` owns the explicit host-library boundary: the CircleCI release job and the reusable GitHub Actions artifact workflow (`.github/workflows/release-build-artifacts.yml`) both export its linuxdeploy exclusion list for systemd/udev, D-Bus, Wayland, epoxy, and nghttp2 as `LINUXDEPLOY_EXCLUDED_LIBRARIES`, then run `validate-appimage-libraries`, which extracts every sealed AppImage and fails if any excluded family is present. The stricter `validate-appimages` command additionally requires the symlink-safe AppRun and fcitx payload that only the experimental output-plugin shim produces, so it is not a release gate for stock packaging. GTK and GLib remain bundled as one coherent application stack for older distributions. The experimental output-plugin shim remains available for local investigation, but release packaging does not pre-seed it because that path previously exited before sealing the AppImage. See [ADR-0184](./adr/0184-host-compatible-appimage-library-boundary.md).
 
 ### Versioning
 
