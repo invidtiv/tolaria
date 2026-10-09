@@ -6,7 +6,6 @@ import {
   mkdir,
   mkdtemp,
   readFile,
-  readdir,
   rename,
   rm,
   writeFile,
@@ -287,12 +286,20 @@ function assertAppImagePathsExtracted(appImage, tempDir, requiredPaths) {
   }
 }
 
+function listExtractedLibraries(tempDir) {
+  const result = spawnSync('find', ['squashfs-root/usr/lib', '-mindepth', '1', '-printf', '%P\\n'], {
+    cwd: tempDir,
+    encoding: 'utf8',
+  })
+  if (result.status !== 0) {
+    throw new Error(`Failed to list extracted AppImage libraries: ${result.stderr.trim()}`)
+  }
+  return result.stdout.split('\n').filter(Boolean)
+}
+
 async function validateBundledLibraries(appImage, tempDir) {
   extractAppImagePath(appImage, 'usr/lib', tempDir)
-  const libraryPaths = await readdir(join(tempDir, 'squashfs-root', 'usr/lib'), {
-    recursive: true,
-  })
-  assertNoBundledHostLibraries(libraryPaths, appImage)
+  assertNoBundledHostLibraries(listExtractedLibraries(tempDir), appImage)
 }
 
 async function validateExtractedAppImage(appImage, tempDir) {

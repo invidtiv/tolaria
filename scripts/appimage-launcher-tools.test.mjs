@@ -83,9 +83,7 @@ async function writeFakeAppImage(root, { includeSystemd = false, stock = false }
     ? 'exit 1'
     : 'mkdir -p "squashfs-root/$(dirname "$requested")" && touch "squashfs-root/$requested"'
 
-  await writeFile(
-    fakeAppImage,
-    `#!/usr/bin/env bash
+  const script = `#!/usr/bin/env bash
 set -euo pipefail
 requested="$2"
 case "$requested" in
@@ -102,10 +100,11 @@ case "$requested" in
     ${otherPayload}
     ;;
 esac
-`,
-    'utf8',
-  )
-  await chmod(fakeAppImage, 0o755)
+`
+  const written = spawnSync('tee', [name], { cwd: root, input: script, stdio: ['pipe', 'ignore', 'pipe'] })
+  assert.equal(written.status, 0, String(written.stderr))
+  const madeExecutable = spawnSync('chmod', ['755', name], { cwd: root })
+  assert.equal(madeExecutable.status, 0, String(madeExecutable.stderr))
   return fakeAppImage
 }
 
