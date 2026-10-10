@@ -67,14 +67,13 @@ describe("cold-start HTML sheet expressions", () => {
 	});
 	it("waits for the engine, then resolves simultaneous sheet-cell references", async () => {
 		const first = renderHook(
-			() =>
-				useResolvedVaultExpressionTemplate("<p>Answer: {{[[sheet]].A1}}</p>"),
+			() => useResolvedVaultExpressionTemplate("Answer: {{[[sheet]].A1}}"),
 			{ wrapper },
 		);
 		const second = renderHook(
 			() =>
 				useResolvedVaultExpressionTemplate(
-					"<p>{{[[sheet]].A1}} / {{[[sheet]].A1}}</p>",
+					"{{[[sheet]].A1}} / {{[[sheet]].A1}}",
 				),
 			{ wrapper },
 		);
@@ -84,11 +83,18 @@ describe("cold-start HTML sheet expressions", () => {
 		);
 		closed.unmount();
 		expect(engine.init).toHaveBeenCalledTimes(1);
+		expect(first.result.current).toEqual({
+			html: "<div></div>",
+			unresolved: [],
+		});
 		await act(async () => engine.resolve());
 		await waitFor(() =>
-			expect(first.result.current.html).toBe("<p>Answer: 42</p>"),
+			expect(first.result.current).toEqual({
+				html: "Answer: 42",
+				unresolved: [],
+			}),
 		);
-		expect(second.result.current.html).toBe("<p>42 / 42</p>");
+		expect(second.result.current).toEqual({ html: "42 / 42", unresolved: [] });
 		expect(first.result.current.unresolved).toEqual([]);
 		const missing = renderHook(
 			() =>
@@ -98,7 +104,10 @@ describe("cold-start HTML sheet expressions", () => {
 			{ wrapper },
 		);
 		await waitFor(() =>
-			expect(missing.result.current.html).toBe("{{[[missing]].A1}} / "),
+			expect(missing.result.current).toEqual({
+				html: "{{[[missing]].A1}} / ",
+				unresolved: ["[[missing]].A1"],
+			}),
 		);
 		expect(missing.result.current.unresolved).toEqual(["[[missing]].A1"]);
 	});

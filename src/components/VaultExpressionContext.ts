@@ -266,7 +266,7 @@ export function useResolvedVaultExpressionTemplate(
 							...expressionContext,
 						},
 					})
-				: { html: source, unresolved: [] },
-		[compiled, contentsByPath, expressionContext, ready, source],
+				: { html: "<div></div>", unresolved: [] },
+		[compiled, contentsByPath, expressionContext, ready],
 	);
 }
