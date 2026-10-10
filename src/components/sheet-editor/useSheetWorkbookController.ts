@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
-import ironCalcWasmUrl from '@ironcalc/wasm/wasm_bg.wasm?url'
-import { init as initIronCalc, type Model } from '@ironcalc/workbook'
+import type { Model } from '@ironcalc/workbook'
+import { ensureIronCalcReady } from '../../utils/sheetEngineReadiness'
 import { trackSheetEditorOpened } from '../../lib/productAnalytics'
 import { notePathsMatch } from '../../utils/notePathIdentity'
 import { cancelIdle, scheduleIdle, type IdleHandle } from '../../utils/sheetBrowserScheduling'
@@ -20,7 +20,6 @@ import type { ScheduleSheetSerializeOptions, SheetWorkbookState } from './sheetE
 
 const SERIALIZE_DEBOUNCE_MS = 450
 
-let ironCalcInitPromise: Promise<void> | null = null
 
 interface UseSheetWorkbookControllerOptions {
   content: string
@@ -30,18 +29,6 @@ interface UseSheetWorkbookControllerOptions {
   path: string
   pendingExternalFormulaCommitRef: MutableRefObject<number>
   shouldWaitForInitialExternalFormulaResolution?: (workbookAlreadyBuilt: boolean) => boolean
-}
-
-function ensureIronCalcReady(): Promise<void> {
-  if (!ironCalcInitPromise) {
-    ironCalcInitPromise = initIronCalc(ironCalcWasmUrl)
-      .then(() => undefined)
-      .catch((error: unknown) => {
-        ironCalcInitPromise = null
-        throw error
-      })
-  }
-  return ironCalcInitPromise
 }
 
 function resetDirtyTracking(
@@ -643,45 +630,25 @@ export function useSheetWorkbookController({
   const [workbook, setWorkbook] = useState<SheetWorkbookState | null>(null),
     [error, setError] = useState<string | null>(null)
   const refs = useWorkbookControllerRefs(content, path, onContentChange)
-  const { dirtyBodyRowsRef, dirtyWorkbookGenerationRef, idleSerializeRef, serializeTimerRef, lastEmittedContentRef, lastEmittedPathRef, latestContentPathRef, latestContentRef, onContentChangeRef, trackedOpenPathRef, workbookGenerationRef, replacedWorkbookModelsRef, workbookPathRef, workbookRef } = refs
+  const { workbookRef } = refs
 
   const { cancelScheduledSerialize, scheduleSerialize, serializeCurrentWorkbook } = useWorkbookSerialization({
-    dirtyBodyRowsRef,
-    dirtyWorkbookGenerationRef,
-    idleSerializeRef,
-    lastEmittedContentRef,
-    lastEmittedPathRef,
-    latestContentPathRef,
-    latestContentRef,
-    onContentChangeRef,
-    serializeTimerRef,
-    workbookPathRef,
-    workbookRef,
+    ...refs,
   })
 
   useWorkbookBuildLifecycle({
+    ...refs,
     cancelScheduledSerialize,
     content,
-    dirtyBodyRowsRef,
-    dirtyWorkbookGenerationRef,
     externalFormulaContextForBuild,
-    lastEmittedContentRef,
-    lastEmittedPathRef,
-    latestContentPathRef,
-    latestContentRef,
     nativeExternalFormulaInputsForBuild,
     onContentChange,
     path,
     pendingExternalFormulaCommitRef,
-    replacedWorkbookModelsRef,
     serializeCurrentWorkbook,
     setError,
     setWorkbook,
     shouldWaitForInitialExternalFormulaResolution,
-    trackedOpenPathRef,
-    workbookGenerationRef,
-    workbookPathRef,
-    workbookRef,
   })
 
   const refreshWorkbook = useWorkbookMaintenance({ workbook, refs, pendingExternalFormulaCommitRef, cancelScheduledSerialize, serializeCurrentWorkbook, setWorkbook })
